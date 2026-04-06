@@ -1,7 +1,23 @@
 * canvaswm
 window manager that turns macos into an infinite canvas
 
+https://x.com/_annieversary/status/2041189776418615559
+
+** disclaimer
+don't use this.
+it's a prototype and it will be full of bugs
+
+** keybindings
 - ctrl+cmd+scroll to zoom
 - ctrl+cmd+click&drag to move
 
-run =./build.sh= to build, then =./canvaswm= to run
+** building
+build with
+#+BEGIN_SRC bash
+./build.sh
+#+END_SRC
+
+then run with
+#+BEGIN_SRC bash
+./canvaswm
+#+END_SRC
