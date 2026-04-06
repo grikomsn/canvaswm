@@ -83,7 +83,7 @@ let titleBarHeight: CGFloat = 28
 func isOnScreen(_ pos: CGPoint, size: CGSize) -> Bool {
     let mainH = NSScreen.main!.frame.height
     for screen in NSScreen.screens {
-        let vf = screen.visibleFrame
+        let vf = screen.frame
         let axTop    = mainH - (vf.origin.y + vf.height)
         let axBottom = mainH - vf.origin.y
         let axLeft   = vf.origin.x
