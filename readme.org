@@ -1,0 +1,7 @@
+* canvaswm
+window manager that turns macos into an infinite canvas
+
+- ctrl+cmd+scroll to zoom
+- ctrl+cmd+click&drag to move
+
+run =./build.sh= to build, then =./canvaswm= to run

@@ -8,8 +8,13 @@ import ApplicationServices
 var dragActive = false
 var dragStartMouse = CGPoint.zero
 var draggedElement: AXUIElement? = nil
-// Snapshots of non-dragged windows: (element, position at drag start)
-var snapshots: [(AXUIElement, CGPoint)] = []
+// Snapshots of non-dragged windows: (element, virtual position at drag start, size)
+var snapshots: [(AXUIElement, CGPoint, CGSize)] = []
+
+// Virtual canvas state — persists across drag gestures
+var virtualPositions: [CFHashCode: CGPoint] = [:]
+var parkedWindows: Set<CFHashCode> = []
+let parkingSpot = CGPoint(x: 100_000, y: 100_000)
 
 func windowsWithPositions() -> [(AXUIElement, CGPoint)] {
     var result: [(AXUIElement, CGPoint)] = []
@@ -73,6 +78,23 @@ func setSize(_ element: AXUIElement, to size: CGSize) {
     AXUIElementSetAttributeValue(element, kAXSizeAttribute as CFString, val)
 }
 
+let titleBarHeight: CGFloat = 28
+
+func isOnScreen(_ pos: CGPoint, size: CGSize) -> Bool {
+    let mainH = NSScreen.main!.frame.height
+    for screen in NSScreen.screens {
+        let vf = screen.visibleFrame
+        let axTop    = mainH - (vf.origin.y + vf.height)
+        let axBottom = mainH - vf.origin.y
+        let axLeft   = vf.origin.x
+        let axRight  = vf.origin.x + vf.width
+        let vertOK  = pos.y >= axTop && pos.y < axBottom
+        let horizOK = pos.x < axRight && (pos.x + size.width) > axLeft
+        if vertOK && horizOK { return true }
+    }
+    return false
+}
+
 func windowsWithFrames() -> [(AXUIElement, CGPoint, CGSize)] {
     var result: [(AXUIElement, CGPoint, CGSize)] = []
     let apps = NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular }
@@ -128,7 +150,16 @@ func setupEventTap() {
                         dragActive = true
                         dragStartMouse = event.location
                         draggedElement = focusedElement()
-                        snapshots = windowsWithPositions()
+                        let currentFrames = windowsWithFrames()
+                        snapshots = currentFrames.map { (win, actualPos, size) in
+                            let key = CFHash(win)
+                            if parkedWindows.contains(key) {
+                                return (win, virtualPositions[key] ?? actualPos, size)
+                            } else {
+                                virtualPositions[key] = actualPos
+                                return (win, actualPos, size)
+                            }
+                        }
                         return nil
                     }
 
@@ -139,8 +170,17 @@ func setupEventTap() {
                         let dy = loc.y - dragStartMouse.y
                         let current = snapshots
                         DispatchQueue.main.async {
-                            for (win, origin) in current {
-                                setPosition(win, to: CGPoint(x: origin.x + dx, y: origin.y + dy))
+                            for (win, virtualOrigin, size) in current {
+                                let key = CFHash(win)
+                                let newVirtual = CGPoint(x: virtualOrigin.x + dx, y: virtualOrigin.y + dy)
+                                virtualPositions[key] = newVirtual
+                                if isOnScreen(newVirtual, size: size) {
+                                    parkedWindows.remove(key)
+                                    setPosition(win, to: newVirtual)
+                                } else if !parkedWindows.contains(key) {
+                                    parkedWindows.insert(key)
+                                    setPosition(win, to: parkingSpot)
+                                }
                             }
                         }
                         return nil 
@@ -168,6 +208,7 @@ func setupEventTap() {
                         let frames = windowsWithFrames()
                         DispatchQueue.main.async {
                             for (win, pos, size) in frames {
+                                if parkedWindows.contains(CFHash(win)) { continue }
                                 let newW = max(100, size.width * scale)
                                 let newH = max(60, size.height * scale)
                                 let newX = center.x + (pos.x - center.x) * scale
