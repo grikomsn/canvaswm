@@ -7,17 +7,45 @@ https://x.com/_annieversary/status/2041189776418615559
 don't use this.
 it's a prototype and it will be full of bugs
 
+** installation
+
+*** from dmg or zip
+1. download ~CanvasWM-1.0.0.dmg~ or ~CanvasWM-1.0.0.zip~ from releases
+2. open dmg, drag ~CanvasWM.app~ to applications
+3. launch from applications
+4. grant accessibility permissions when prompted
+
+*** from source
+#+BEGIN_SRC bash
+git clone <repository-url>
+cd canvaswm
+make install
+#+END_SRC
+
 ** keybindings
-- ctrl+cmd+scroll to zoom
-- ctrl+cmd+click&drag to move
+- ~ctrl+cmd+scroll~ to zoom
+- ~ctrl+cmd+click&drag~ to move
+- ~ctrl+cmd+option+cursor~ to pan without clicking
+
+** configuration
+click the icon in the menu bar to access settings
 
 ** building
-build with
 #+BEGIN_SRC bash
-./build.sh
+make         # build CanvasWM.app
+make run     # build and run
+make dmg     # create dmg installer
+make zip     # create zip distribution
+make release # build both
+make clean   # clean build artifacts
 #+END_SRC
 
-then run with
+** code signing
 #+BEGIN_SRC bash
-./canvaswm
+make sign SIGN_IDENTITY="Developer ID Application: Your Name"
 #+END_SRC
+
+** requirements
+- macos 11.0 or later
+- accessibility permissions (required)
+- ~1MB~ disk space

@@ -1,1 +1,34 @@
-/canvaswm
+# Binary and build outputs
+canvaswm
+/build/
+/dist/
+
+# Swift Package Manager
+/.build/
+/.swiftpm/
+Package.resolved
+
+# Icon generation intermediate files
+*.icns
+
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Xcode
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+DerivedData/
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*~
+
+# Local/agent settings
+.claude/
+.agents/skills/*/.installed/
+.agents/skills/*/temp/

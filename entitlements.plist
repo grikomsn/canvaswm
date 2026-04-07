@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Accessibility permission for window management -->
+    <key>com.apple.security.temporary-exception.mach-register.global-name</key>
+    <array>
+        <string>com.apple.axserver</string>
+    </array>
+    
+    <!-- Basic app security -->
+    <key>com.apple.security.automation.apple-events</key>
+    <true/>
+    
+    <!-- Needed for accessibility -->
+    <key>com.apple.security.temporary-exception.apple-events</key>
+    <array>
+        <string>com.apple.systemevents</string>
+    </array>
+</dict>
+</plist>

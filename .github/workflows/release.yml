@@ -1,0 +1,131 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version override (optional, e.g., 1.0.0)'
+        required: false
+        type: string
+
+jobs:
+  build-and-release:
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Extract Version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION=${GITHUB_REF#refs/tags/v}
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION"
+      
+      - name: Check for Developer ID Certificate
+        id: check_cert
+        run: |
+          if [ -n "${{ secrets.DEVELOPER_ID_CERTIFICATE_P12 }}" ]; then
+            echo "has_certificate=true" >> $GITHUB_OUTPUT
+            echo "✓ Developer ID certificate found"
+          else
+            echo "has_certificate=false" >> $GITHUB_OUTPUT
+            echo "⚠ No Developer ID certificate, will use ad-hoc signing"
+          fi
+      
+      - name: Import Developer ID Certificate
+        if: steps.check_cert.outputs.has_certificate == 'true'
+        uses: apple-actions/import-codesign-certs@v2
+        with:
+          p12-file-base64: ${{ secrets.DEVELOPER_ID_CERTIFICATE_P12 }}
+          p12-password: ${{ secrets.DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+          keychain: signing_temp
+      
+      - name: Build App (with Developer ID)
+        if: steps.check_cert.outputs.has_certificate == 'true'
+        env:
+          SIGN_IDENTITY: ${{ secrets.DEVELOPER_ID_NAME }}
+        run: |
+          make app
+          echo "Signing with Developer ID: $SIGN_IDENTITY"
+          make sign SIGN_IDENTITY="$SIGN_IDENTITY"
+          echo "✓ App signed with Developer ID"
+      
+      - name: Build App (ad-hoc signing)
+        if: steps.check_cert.outputs.has_certificate != 'true'
+        run: |
+          make app
+          echo "✓ App signed with ad-hoc identity"
+      
+      - name: Build Distribution Packages
+        run: |
+          make dmg
+          make zip
+          echo "✓ Distribution packages created"
+      
+      - name: Verify Artifacts
+        run: |
+          ls -lh dist/
+          test -f dist/CanvasWM-*.dmg
+          test -f dist/CanvasWM-*.zip
+          echo "✓ Artifacts verified"
+      
+      - name: Verify Signature
+        run: |
+          codesign --verify --deep --verbose=2 build/CanvasWM.app
+          codesign -dv --verbose=4 build/CanvasWM.app 2>&1 | grep -E "Authority|Identifier|Signature" || true
+          echo "✓ Signature verified"
+      
+      - name: Notarize (requires Developer ID)
+        if: steps.check_cert.outputs.has_certificate == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          echo "Submitting for notarization..."
+          xcrun notarytool submit dist/CanvasWM-*.dmg \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_ID_PASSWORD" \
+            --team-id "$TEAM_ID" \
+            --wait \
+            --output-format json || true
+          echo "Note: Notarization completed or skipped"
+        continue-on-error: true
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: CanvasWM ${{ steps.version.outputs.version }}
+          files: |
+            dist/CanvasWM-*.dmg
+            dist/CanvasWM-*.zip
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          body: |
+            ## Installation
+            
+            ### DMG (Recommended)
+            1. Download `CanvasWM-*.dmg`
+            2. Open and drag `CanvasWM.app` to Applications
+            3. Launch and grant Accessibility permissions
+            
+            ### ZIP
+            1. Download `CanvasWM-*.zip`
+            2. Extract and move `CanvasWM.app` to Applications
+            3. Launch and grant Accessibility permissions
+            
+            ## Code Signing
+            ${{ steps.check_cert.outputs.has_certificate == 'true' && '✅ Signed with Developer ID' || '⚠️  Ad-hoc signed (right-click > Open on first launch)' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

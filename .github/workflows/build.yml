@@ -1,0 +1,38 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Build App Bundle
+        run: make app
+      
+      - name: Verify Bundle Structure
+        run: |
+          test -d build/CanvasWM.app
+          test -f build/CanvasWM.app/Contents/MacOS/CanvasWM
+          test -f build/CanvasWM.app/Contents/Info.plist
+          echo "✓ Bundle structure verified"
+      
+      - name: Verify Code Signing
+        run: |
+          codesign -dv --verbose=4 build/CanvasWM.app 2>&1 | head -20
+          codesign --verify --deep --strict build/CanvasWM.app
+          echo "✓ Code signing verified"
+      
+      - name: Upload App Bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: CanvasWM-app-${{ github.run_number }}
+          path: build/CanvasWM.app
+          retention-days: 7
